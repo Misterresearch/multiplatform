@@ -1,0 +1,93 @@
+---
+title: "corevalue Feedback"
+author: "Blandon Casenave - NBCU Digital Measurement Strategy"
+date: "August 29, 2016"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Required libraries
+library(stringr)
+library(NLP)
+library(tm)
+library(SnowballC)
+library(RCurl)
+library(RTextTools)
+
+#Corpus Import & Syntax
+#fileencoding needs to be set to "latin1"
+
+corevalue <-read.table("/Users/digitalmarketer1977/Desktop/core_values.txt", fill=TRUE, header=FALSE, sep="\t")
+
+#corevaluetable <- read.table(file = corevalue, header = TRUE, sep = ",", strip.white = TRUE, na.strings = "", fill = TRUE, fileEncoding = "latin1")
+#corevaluetable$Subject = as.character(corevaluetable$Subject)
+
+#corevaluetxt<- data.frame(corevaluetable$Subject)
+
+corevaluetxt<- Corpus(DataframeSource(corevalue))
+#Corpus Loading, filtering and stemming code. See "Basic Text Mining" source in end notes.
+corevaluetxt<- tm_map(corevaluetxt, removePunctuation)
+for(j in seq(corevaluetxt))   
+{   
+  corevaluetxt[[j]] <- gsub("/", " ", corevaluetxt[[j]])   
+  corevaluetxt[[j]] <- gsub("@", " ", corevaluetxt[[j]])   
+  corevaluetxt[[j]] <- gsub("\\|", " ", corevaluetxt[[j]]) 
+  corevaluetxt[[j]] <- gsub("chrome cast", "chromecast", corevaluetxt[[j]])
+  corevaluetxt[[j]] <- gsub("repetitive", "rep", corevaluetxt[[j]])
+}
+corevaluetxt<- tm_map(corevaluetxt, removeNumbers)
+corevaluetxt<- tm_map(corevaluetxt, tolower)
+corevaluetxt<- tm_map(corevaluetxt, removeWords, stopwords("english"))
+corevaluetxt<- tm_map(corevaluetxt, removeWords, c("the", "and", "or" , "http\\w*","app"))
+#corevaluetxt<- tm_map(corevaluetxt, stemDocument)
+corevaluetxt<- tm_map(corevaluetxt, stripWhitespace)
+corevaluetxt<- tm_map(corevaluetxt, PlainTextDocument)
+#Single Term Matrices
+corevaluedtm <- DocumentTermMatrix(corevaluetxt)
+corevaluetdm <- TermDocumentMatrix(corevaluetxt)
+
+#Sparcity settng adjustments
+corevaluetdm <- removeSparseTerms(corevaluetdm, .99)
+corevaluedtm <- removeSparseTerms(corevaluedtm, .99)
+corevaluefreq <- rowSums(as.matrix(corevaluetdm))
+#findFreqTerms(mentionstdm2, lowfreq = 1)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
+#Required Libraries for Charts and Graphs
+library(wordcloud)
+library(ggplot2)
+library(cluster)
+library(dplyr)
+
+#Single Term Word Clouds
+onewordcloud <- wordcloud(names(corevaluefreq), corevaluefreq, min.freq = , scale=c(4, .2), colors=brewer.pal(6, "Dark2"))
+
+onewordcloud
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
+#Bigram Corpus, see source for "Bigram Text-Document Matrices" in endnotes
+BigramTokenizer <-
+     function(x)
+        unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+corevaluetdm2 <- TermDocumentMatrix(corevaluetxt, control = list(tokenize = BigramTokenizer))
+corevaluedtm2 <- DocumentTermMatrix(corevaluetxt, control = list(tokenize = BigramTokenizer))
+corevaluefreq2 <- rowSums(as.matrix(corevaluetdm2))
+
+#Bigram Word Cloud
+#bigramcloud <- wordcloud(names(corevaluefreq2), corevaluefreq2, min.freq = 5, max.words = 20, scale=c(2, .1), colors=brewer.pal(6, "Dark2"))
+
+```
+
+Code Source: <a href=https://rstudio-pubs-static.s3.amazonaws.com/31867_8236987cf0a8444e962ccd2aec46d9c3.html>Basic Text Mining in R</a>
+
+Code Source: <a href=http://tm.r-forge.r-project.org/faq.html#Bigrams>Bigram Text-Document Matrices</a>
+
+Reference: Automated Data Collection with R, Wiley (2015)
+
+Code Source: <a href=https://rstudio-pubs-static.s3.amazonaws.com/132792_864e3813b0ec47cb95c7e1e2e2ad83e7.html>Predictive Modeling</a>
+
+Data Source: Minqing Hu and Bing Liu. "Mining and Summarizing Customer Reviews." 
